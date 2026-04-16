@@ -1,0 +1,39 @@
+{
+    "les achats": [
+        {
+            "identifiant": "53428818-46a8-45f3-8121-a91c4e339b93",
+            "date": "12/04/2026",
+            "nom": "sac",
+            "nombre": 1,
+            "prix unitaire": 11000,
+            "prix total": 11000
+        },
+        {
+            "identifiant": "587c67f1-5958-419c-b6d8-099090b2f9f3",
+            "date": "15/04/2026",
+            "nom": "sac de riz",
+            "nombre": 3,
+            "prix unitaire": 75000,
+            "prix total": 225000
+        },
+        {
+            "identifiant": "1165f02c-fed7-4a54-852d-c907de5cd847",
+            "date": "15/04/2026",
+            "nom": "huile",
+            "nombre": 12,
+            "prix unitaire": 1500,
+            "prix total": 18000
+        },
+        {
+            "identifiant": "f459c7c7-8ce9-4383-b9b6-52635c54435a",
+            "date": "15/04/2026",
+            "nom": "huile",
+            "nombre": 12,
+            "prix unitaire": 1500,
+            "prix total": 18000,
+            "caracterisque": "litre"
+        }
+    ],
+    "les ventes": [],
+    "les dettes": []
+}
