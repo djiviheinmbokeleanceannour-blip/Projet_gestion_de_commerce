@@ -40,11 +40,13 @@ class Globalite:
           self.vente=[]
           self.achat=[]
           self.dette=[]
+          self.benefice=[]
      def traduction_dict(self):
           meuble_de_rangement={
                "les achats":[],
                "les ventes":[],
-               "les dettes":[]
+               "les dettes":[],
+               "les benefices":[]
           }
           for i in self.achat:
                meuble_de_rangement["les achats"].append(i.traduction_en_dict())
@@ -52,6 +54,8 @@ class Globalite:
                meuble_de_rangement["les ventes"].append(i.traduction_en_dict())
           for i in self.dette:
                meuble_de_rangement["les dettes"].append(i.traduction_en_dict())
+          for i in self.benefice:
+               meuble_de_rangement["les benefices"].append(i.calcul_de_benefice())
           return meuble_de_rangement
      def modification(self,choix,x,y,z):
          w=lecture_json("fichier.json")
@@ -110,7 +114,48 @@ class Globalite:
                 liste_vente=w["les achats"]
                 for marchandise in liste_vente:
                      if str(marchandise["identifiant"])==str(id):
-                         print("trouvé")
                          return marchandise,w
-     def benefice(self):
-          pass
+           elif choix==2:
+                liste_vente=w["les ventes"]
+                for marchandise in liste_vente:
+                     if str(marchandise["identifiant"])==str(id):
+                         return marchandise,w
+           elif choix==3:
+                liste_vente=w["les dettes"]
+                for marchandise in liste_vente:
+                     if str(marchandise["identifiant"])==str(id):
+                         return marchandise,w
+     def calcul_de_totaux_vente(self, nom):
+          nombre=0
+          prix_de_vente=0
+          w=lecture_json("fichier.json")
+          liste_vente=w["les ventes"]
+          for marchandise in liste_vente:
+               if marchandise["nom"]==nom.lower():
+                    nombre+=marchandise["nombre"]
+                    prix_de_vente+=marchandise["prix total"]
+                    date=marchandise["date"]
+          return prix_de_vente,nombre,date
+     def calcul_de_benefice(self,nom):
+          perte=None
+          benefice=None
+          w=lecture_json("fichier.json")
+          liste_achat=w["les achats"]
+          for marchandise in liste_achat:
+               if marchandise["nom"]==nom.lower():
+                    a=marchandise["nombre"]
+                    prix_de_vente_total,nombre,date=self.calcul_de_totaux_vente(nom)
+                    nombre_restant=a-nombre
+                    if nombre_restant==0 or prix_de_vente_total>marchandise["prix total"]:
+                          benefice=prix_de_vente_total-marchandise["prix total"]
+                    elif nombre_restant==0 and prix_de_vente_total<marchandise["prix total"]:
+                         perte=marchandise["prix total"]-prix_de_vente_total
+                    return [{
+                             "date_d_achat":marchandise["date"],
+                             "date de fin de stock":date,
+                             "nom":nom,
+                             "benefice":benefice,
+                             "perte":perte,
+                             "prix_total_d_achat":marchandise["prix total"],
+                             "prix_total_de_vente":prix_de_vente_total,
+                         }]

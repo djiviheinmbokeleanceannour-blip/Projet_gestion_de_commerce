@@ -2,7 +2,7 @@ import json
 import os
 
 def traduction_en_json(nouveau_dict,fichier):  
-     donnees_existant={ "les achats":[], "les ventes":[], "les dettes":[] }
+     donnees_existant={ "les achats":[], "les ventes":[], "les dettes":[], "les benefices":[] }
      if os.path.exists(fichier) and os.path.getsize(fichier)>0:
         with open(fichier, "r", encoding="utf-8") as data:
                try:
@@ -12,9 +12,10 @@ def traduction_en_json(nouveau_dict,fichier):
         donnees_existant["les achats"].extend(nouveau_dict.get("les achats", []))
         donnees_existant["les ventes"].extend(nouveau_dict.get("les ventes", []))
         donnees_existant["les dettes"].extend(nouveau_dict.get("les dettes", []))
+        donnees_existant["les benefices"].extend(nouveau_dict.get("les benefices", []))
      ecriture_dans_json(donnees_existant)
 def lecture_json(fichier):
-      donnees_existant={ "les achats":[], "les ventes":[], "les dettes":[] }
+      donnees_existant={ "les achats":[], "les ventes":[], "les dettes":[], "les benefices":[]}
       with open(fichier, "r", encoding="utf-8") as data:
                try:
                  donnees_existant=json.load(data)

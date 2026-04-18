@@ -2,6 +2,7 @@ from  globalite_marchandise import Vente,Mes_dettes,Achat,Globalite
 from traduction_json import ecriture_dans_json,lecture_json,traduction_en_json
 from datetime import datetime
 import uuid
+import os
 '''except KeyError as e:
     print(f"Erreur de structure dans le fichier JSON : la clé {e} est manquante.")
 except TypeError:
@@ -14,10 +15,11 @@ def affichage_choix():
     print("2: MODIFIER")
     print("3: SUPPRIMER")
     print("4: RECHERCHER")
+    print("5: VOIR TABLEAU DE BENEFICE")
     while True:
          choix_a_faire=gestion_d_echec("votre choix: ")
          try:
-               if choix_a_faire==1 or choix_a_faire==2 or choix_a_faire==3 or choix_a_faire==4:
+               if choix_a_faire==1 or choix_a_faire==2 or choix_a_faire==3 or choix_a_faire==4 or choix_a_faire==5:
                    while True:
                        try:
                          if choix_a_faire==1:
@@ -40,6 +42,14 @@ def affichage_choix():
                               marchandise_rechercher=Globalite()
                               marchandise,w=marchandise_rechercher.rechercher(choice,iD)
                               print(marchandise)
+                              ecriture_dans_json(w)
+                              return 0
+                         elif choix_a_faire==5:
+                              marchandise_benefice=Globalite()
+                              nom=input("Veuillez entrez le nom de la marchandise: ")
+                              benefice=marchandise_benefice.calcul_de_benefice(nom.lower())
+                              w=lecture_json("fichier.json")
+                              w["les benefices"].append(benefice)
                               ecriture_dans_json(w)
                               return 0
                        except Exception as e:
@@ -120,12 +130,14 @@ def choix_specifique():
     while True:
           choix=gestion_d_echec("votre choix")
           try:
-               if choix==1 or choix==2 or choix==3:
+               if choix==1 or choix==2 or choix==3 :
                   return choix
           except:
                print("Choix incorrect")
 def ajouter():    
      while True:
+        w=lecture_json("fichier.json")
+        liste_achat = w.get("les achats", [])
         x=choix_specifique() 
         date1,nom=nom_marchandise_et_date()
         a,caracteristique,prix,prix_unit=prix_calcul()
@@ -135,15 +147,27 @@ def ajouter():
                    v=Achat(date1,nom,a,caracteristique,prix,n)
                    v.prix_unitaire=prix_unit
                    return v
-            elif x==2:
-                   v=Vente(date1,nom,a,caracteristique,prix,n)
-                   v.prix_unitaire=prix_unit
-                   return v
+            elif x == 2: 
+              trouve = False
+              for marchandise in liste_achat:
+                  if marchandise["nom"].lower() == nom.lower():
+                      trouve = True
+                      break
+              if trouve:
+                  v = Vente(date1, nom, a, caracteristique, prix, n)
+                  v.prix_unitaire = prix_unit
+                  print("Données enregistrées avec succès")
+                  return v
+              else:
+                print(f"Erreur : Vous n'avez jamais acheté de '{nom}'. Veuillez tout d'abord ajouter dans le tableau achat")
+                return "Exit"
             elif x==3:
                    nom_pretteur,date_de_paye=demande_nom_pretteur()
                    v=Mes_dettes(nom_pretteur,date1,nom,a,caracteristique,prix,n,date_de_paye)
                    v.prix_unitaire=prix_unit
                    return v
+        except SystemExit:
+            raise
         except:
                    print("Veuillez verifier votre choix")
 def prix_calcul():
@@ -186,8 +210,7 @@ def demande_nom_pretteur():
         date_de_paye=input("Veuillez entrez la date de remboursement: ")
         return nom,date_de_paye
 def nombre_de_fois_de_choix_d_ajout(): 
-    '''elle permet de creer une liste au travers du nombre_de_champs saisi par l'utilisateur, donc tout ce qui sera saisi sera stocké dans cette liste et apres trié pour sctocké chacun de son coté'''    
-    liste=[]               
+    '''elle permet de creer une liste au travers du nombre_de_champs saisi par l'utilisateur, donc tout ce qui sera saisi sera stocké dans cette liste et apres trié pour sctocké chacun de son coté'''                
     nombre_de_champs=gestion_d_echec("le nombre de marchandises à ajouter: ")
     for i in range(nombre_de_champs):
         x=ajouter()
@@ -198,6 +221,8 @@ def nombre_de_fois_de_choix_d_ajout():
            classe.vente.append(x)
         elif isinstance(x,Mes_dettes)==True:
            classe.dette.append(x)
+        elif x=="Exit":
+             os._exit(0)
         w=classe.traduction_dict()
         traduction_en_json(w,"fichier.json")
 def affichage():
