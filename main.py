@@ -1,14 +1,27 @@
-from  globalite_marchandise import Vente,Mes_dettes,Achat,Globalite
-from traduction_json import ecriture_dans_json,lecture_json,traduction_en_json
-from datetime import datetime
-import uuid
 import os
-'''except KeyError as e:
-    print(f"Erreur de structure dans le fichier JSON : la clé {e} est manquante.")
-except TypeError:
-    print("Erreur de type : impossible de traiter les données.")
+from datetime import datetime
+from dotenv import load_dotenv
+import psycopg2
+from psycopg2.extras import RealDictCursor
+
+# 1. On charge les variables d'environnement du fichier .env
+load_dotenv()
+
+# 2. On essaie de se connecter en utilisant os.getenv()
+try:
+    connexion = psycopg2.connect(
+        dbname=os.getenv("DB_NAME"),
+        user=os.getenv("DB_USER"),
+        password=os.getenv("DB_PASSWORD"),
+        host=os.getenv("DB_HOST"),
+        port=os.getenv("DB_PORT")
+    )
+    curseur=connexion.cursor(cursor_factory=RealDictCursor)
+    print("Connexion reussie")
 except Exception as e:
-    print(f"Une erreur inattendue est survenue : {e}")'''
+     print(f"Une erreur est survenue:{e}")
+     exit()
+
 def affichage_choix():
     print("-------Menu action à executer------")
     print("1: AJOUTER")
@@ -23,105 +36,114 @@ def affichage_choix():
                    while True:
                        try:
                          if choix_a_faire==1:
-                            nombre_de_fois_de_choix_d_ajout()
+                            ajouter()
                             return 0
                          elif choix_a_faire==2:
-                              choix,x,y,z=modifications()
-                              marchandise_modifier=Globalite()
-                              w=marchandise_modifier.modification(choix,x,y,z)
-                              ecriture_dans_json(w)
+                              modifier()
                               return 0
                          elif choix_a_faire==3:
-                            choix,id=supression()
-                            marchandise_supprimer=Globalite()
-                            w=marchandise_supprimer.supprimer(choix,id)
-                            ecriture_dans_json(w)
+                            supprimer()
                             return 0
                          elif choix_a_faire==4:
-                              choice,iD=affichage()
-                              marchandise_rechercher=Globalite()
-                              marchandise,w=marchandise_rechercher.rechercher(choice,iD)
-                              print(marchandise)
-                              ecriture_dans_json(w)
+                              rechercher()
                               return 0
                          elif choix_a_faire==5:
-                              marchandise_benefice=Globalite()
-                              nom=input("Veuillez entrez le nom de la marchandise: ")
-                              benefice=marchandise_benefice.calcul_de_benefice(nom.lower())
-                              w=lecture_json("fichier.json")
-                              w["les benefices"].append(benefice)
-                              ecriture_dans_json(w)
+                              benefice()
                               return 0
                        except Exception as e:
                             print(f"erreur reelle {e}")
          except:
               print("Veuillez verifier votre choix")
-def supression():
+
+
+# Fonction d'identification automatique
+def obtenir_id_achat_depuis_nom():
+    """ Permet à l'ordinateur de trouver l'id_achat tout seul à partir du nom choisi """
+    try:
+        curseur.execute("SELECT id_achat, nom, nombre FROM achats ORDER BY id_achat;")
+        stocks = curseur.fetchall()
+        
+        if not stocks:
+            print("Aucun achat en stock dans pgAdmin. Ajoutez d'abord un achat !")
+            return None
+            
+        print("\n--- Sélectionnez le produit concerné ---")
+        for index, produit in enumerate(stocks, 1):
+            print(f"{index}: {produit['nom']} (Quantité initiale : {produit['nombre']}) [ID pgAdmin: {produit['id_achat']}]")
+            
+        while True:
+            choix = gestion_d_echec("le numéro du produit choisi")
+            if 1 <= choix <= len(stocks):
+                return stocks[choix - 1]['id_achat']
+            print("Numéro invalide, choisissez dans la liste.")
+    except Exception as e:
+        print(f"Erreur de récupération des stocks : {e}")
+        return None
+def benefice():
+     print("--------Tableau general des benefices-------")
+     try:
+          curseur.execute("select*from vue_benefices;")
+          lignes=curseur.fetchall()
+          if not lignes:
+               print("Aucune donnée disponible")
+               return
+          print(f"{'ID':<4} | {'Nom':<15} | {'investi':<10} | {'vendu':<6} | {'C.A cumulé':<12} | {'Benefice ou perte':<15} | {'Statut du lot'}")
+          for l in lignes:
+               print(f"{l['id_achat']:<4} | {l['nom_marchandise']:<15} | {l['investissement_initial']:<10} | {l['quantite_totale_vendue']:<6} | {l['chiffre_d_affaire_cumule']:<12} | {l['balance_benefice_ou_perte']:<17} | {l['statut_du_lot']}")
+     except Exception as e:
+        print(f"Erreur d'affichage du tableau : {e}")
+
+
+def rechercher():
+     id_recherche=obtenir_id_achat_depuis_nom()
+     try:
+          curseur.execute("select*from vue_etat_stocks where id_achat=%s;",(id_recherche,))
+          resultat=curseur.fetchone()
+          if resultat:
+               print("marchandise trouvé")
+               print(f"Produit:{resultat['nom_marchandise']}")
+               print(f"Quantite achetée au depart: {resultat['quantite_initiale_achetee']}")
+               print(f"Quantité totale vendue: {resultat['quantite_totale_vendue']}")
+               print(f"Reste en stock: {resultat['quantite_restante']}")
+          else:
+               print("Aucun produit ne possede cet ID")
+     except Exception as e:
+          print(f"Erreur de recherche{e}")
+def supprimer():
      choix=choix_specifique()
-     w=lecture_json("fichier.json")
+     id_a_supprimer=gestion_d_echec(" ID à supprimer ")
      if choix==1:
-        liste_achat=w["les achats"]
-        id=suppression_preleminaire(liste_achat)
-        return choix,id
+          table,col_id="achats","id_achat"
      elif choix==2:
-        liste_vente=w["les ventes"]
-        id=suppression_preleminaire(liste_vente)
-        return choix,id
-        
+           table,col_id="ventes","id_vente"
      elif choix==3:
-        liste_dettes=w["les dettes"]
-        id=suppression_preleminaire(liste_dettes)
-        return choix,id
-        
-def suppression_preleminaire(liste):
-     if not liste:
-                  print("Aucune donnée dans cette section")
-                  return None,None,None,None
-     while True:
-            id=input("l'ID de la marchandise à supprimer: ")
-            try:
-                for marchandise in liste:
-                        if str(marchandise["identifiant"])==str(id):
-                          return id
-            except:
-                print("Veuillez verifier l'ID svp")
-def modifications():
-            choix=choix_specifique()
-            w=lecture_json("fichier.json")
-            if choix==1:
-              liste_vente=w["les achats"]
-              x,y,z=modifications_preleminaire(liste_vente)
-              return choix,x,y,z
-            elif choix==2:
-              liste_vente=w["les ventes"]
-              x,y,z=modifications_preleminaire(liste_vente)
-              return choix,x,y,z
-            elif choix==3:
-              liste_vente=w["les dettes"]
-              x,y,z=modifications_preleminaire(liste_vente)
-              return choix,x,y,z
-def modifications_preleminaire(liste_vente):
-    if not liste_vente:
-        print("Aucune donnée dans cette section")
-        return None,None,None,None
-    while True:
-         x=input("l'ID de la marchandise à modifier: ")
-         try:
-              for marchandise in liste_vente:
-                     if str(marchandise["identifiant"])==str(x):
-                           while True:
-                                y=input("Veuillez entrez l'information à modifier: ")
-                                try:
-                                     if y.lower()=="nom":
-                                            z=input("Veuillez entrez la valeur de l'information: ")
-                                     elif  y.lower()=="prix unitaire" or y.lower()=="nombre":
-                                           z=gestion_d_echec("la valeur de l'information")
-                                     return x,y,z
-                                except:
-                                      print("Veuillez verifier ce que vous avez saisie svp")
-                                      break
-         except:
-                          print("Veuillez verifier l'identifiant")
+          table,col_id="dettes","id_dette"
+     try:
+       requete=f"delete from {table} where {col_id}=%s;"
+       curseur.execute(requete,(id_a_supprimer,))
+       connexion.commit()
+       print(f"L'element id {id_a_supprimer} a été supprimé de la table {table}")
+     except Exception as e:
+          connexion.rollback()
+          print(f"Erreur lors de la suppression: {e}")
+def modifier():
+   choix=choix_specifique()
+   id_cible=gestion_d_echec("L'id exact de la ligne à modifier")
+   if choix==1:
+        table,col_id,col_cible="achats","id_achat","nom"
+   elif choix==2:
+        table,col_id,col_cible="ventes", "id_vente", "prix_vente_u"
+   elif choix==3:
+        table,col_id,col_cible="dettes","id_dette","nom_pretteur"
+   nouvelle_valeur=input(f"Entrez la nouvelle valeur pour le champ cible({col_cible}): ")
+   try:
+        requete=f"update {table} set {col_cible}= %s where {col_id}=%s;"
+        curseur.execute(requete,(nouvelle_valeur,id_cible))
+        connexion.commit()
+        print(f"Donnée mis à jour avec succes")
+   except Exception as e:
+        connexion.rollback()
+        print(f"impossible de modifier")
 def choix_specifique():
     print("Faites un choix en fonction des nombres svp")
     print("1: ACHAT")
@@ -135,45 +157,71 @@ def choix_specifique():
           except:
                print("Choix incorrect")
 def ajouter():    
+     x=choix_specifique() 
      while True:
-        w=lecture_json("fichier.json")
-        liste_achat = w.get("les achats", [])
-        x=choix_specifique() 
-        date1,nom=nom_marchandise_et_date()
-        a,caracteristique,prix,prix_unit=prix_calcul()
-        n= str(uuid.uuid4())
-        try:
-            if x==1:
-                   v=Achat(date1,nom,a,caracteristique,prix,n)
-                   v.prix_unitaire=prix_unit
-                   return v
-            elif x == 2: 
-              trouve = False
-              for marchandise in liste_achat:
-                  if marchandise["nom"].lower() == nom.lower():
-                      trouve = True
-                      break
-              if trouve:
-                  v = Vente(date1, nom, a, caracteristique, prix, n)
-                  v.prix_unitaire = prix_unit
-                  print("Données enregistrées avec succès")
-                  return v
-              else:
-                print(f"Erreur : Vous n'avez jamais acheté de '{nom}'. Veuillez tout d'abord ajouter dans le tableau achat")
-                return "Exit"
-            elif x==3:
-                   nom_pretteur,date_de_paye=demande_nom_pretteur()
-                   v=Mes_dettes(nom_pretteur,date1,nom,a,caracteristique,prix,n,date_de_paye)
-                   v.prix_unitaire=prix_unit
-                   return v
-        except SystemExit:
-            raise
-        except:
-                   print("Veuillez verifier votre choix")
-def prix_calcul():
-           prix_unitaire=None                     
+         if x==1:
+            date1,nom=nom_marchandise_et_date()
+            a,unite,prix,prix_unit=prix_calcul()
+            print("Données enregistrées avec succès")
+            try:
+                 curseur.execute("""insert into achats (nom,date_achat,nombre,unite,prix_achat_u,prix_achat_t) values (%s,%s,%s,%s,%s,%s);""",(nom,date1,a,unite,prix_unit,prix))
+                 connexion.commit()
+                 print("Achat enregistré avec succes, merci")
+                 break
+            except Exception as e:
+                 connexion.rollback()
+                 print(f'Erreur {e}')
+         elif x == 2: 
+                id_achat_lie=obtenir_id_achat_depuis_nom()
+                if id_achat_lie is None:
+                     return
+                date1,nom=nom_marchandise_et_date()
+                a,unite,prix,prix_unit=prix_calcul()
+                try:
+                     curseur.execute("""insert into ventes(date_vente,nombre,prix_vente_u,prix_vente_t,id_achat) values(%s,%s,%s,%s,%s);""",(date1,a,prix_unit,prix,id_achat_lie))
+                     connexion.commit()
+                     print("Données enregistrées avec succès")
+                     break
+                except Exception as e:
+                     connexion.rollback()
+                     print(f'Vente refusé par le syteme:{e}')
+         elif x==3:
+              statut="1"
+              id_achat_lie=obtenir_id_achat_depuis_nom()
+              if id_achat_lie is None:
+                   return
+              r=datetime.now()
+              date1=r.strftime("%Y/%m/%d")
+              prix_unit=None                     
+              a=gestion_d_echec("le nombre:")
+              print("choix 1: Entrez le prix unitaire")
+              print("choix 2: Entrez le prix total")
+              while True:
+                  choix=gestion_d_echec("votre choix: ")
+                  if choix==1:
+                       prix_unit=gestion_d_echec("prix unitaire: ")
+                       prix=prix_unit*a
+                       nom_pretteur,date_de_paye=demande_nom_pretteur()
+                       break
+                  else:
+                       prix=gestion_d_echec("prix total: ")
+                       prix_unit=prix/a
+                       nom_pretteur,date_de_paye=demande_nom_pretteur()
+                       break
+              try:
+                        curseur.execute("""insert into ventes(date_vente,nombre,prix_vente_u,prix_vente_t,id_achat) values(%s,%s,%s,%s,%s);""",(date1,a,prix_unit,prix,id_achat_lie))
+                        connexion.commit()
+                        curseur.execute("""insert into dettes(date_emprunt,nom_pretteur,nombre,prix_dette_u,prix_dette_t,date_paye,id_achat,statut) values(%s,%s,%s,%s,%s,%s,%s,%s);""",[date1,nom_pretteur,a,prix_unit,prix,date_de_paye,id_achat_lie,statut])
+                        connexion.commit()
+                        print("Données enregistrées avec succès")
+                        break
+              except Exception as e:
+                       connexion.rollback()
+                       print(f"Erreur d'enregistrement{e}")
+                  
+def prix_calcul():                    
            a=gestion_d_echec("le nombre:")
-           caracteristique=input("Veuillez entrez la caractérisque du marchandise (par ex sac de riz ou koro de riz)")
+           caracteristique=input("Veuillez entrez l'unité de mesure de la marchandise (par ex sac de riz ou koro de riz)")
            print("choix 1: Entrez le prix unitaire")
            print("choix 2: Entrez le prix total")
            while True:
@@ -185,6 +233,7 @@ def prix_calcul():
                        return a,caracteristique,prix,prix_unitaire
                      else:
                        prix=gestion_d_echec("prix total: ")
+                       prix_unitaire=prix/a
                        return a,caracteristique,prix,prix_unitaire
                   except ValueError:
                        print("Veuillez verifier votre choix")
@@ -203,30 +252,18 @@ def gestion_d_echec(a):
 def nom_marchandise_et_date():                
         nom=input("Nom de la marchandise: ")
         r=datetime.now()
-        date=r.strftime("%d/%m/%Y")
+        date=r.strftime("%Y/%m/%d")
         return date,nom
 def demande_nom_pretteur():
         nom=input("Nom du pretteur: ")
-        date_de_paye=input("Veuillez entrez la date de remboursement: ")
+        date_de_paye=saisir_date("Veuillez entrez la date de paye svp: ")
         return nom,date_de_paye
-def nombre_de_fois_de_choix_d_ajout(): 
-    '''elle permet de creer une liste au travers du nombre_de_champs saisi par l'utilisateur, donc tout ce qui sera saisi sera stocké dans cette liste et apres trié pour sctocké chacun de son coté'''                
-    nombre_de_champs=gestion_d_echec("le nombre de marchandises à ajouter: ")
-    for i in range(nombre_de_champs):
-        x=ajouter()
-        classe=Globalite() 
-        if isinstance(x,Achat)==True:
-           classe.achat.append(x)
-        elif isinstance(x,Vente)==True:
-           classe.vente.append(x)
-        elif isinstance(x,Mes_dettes)==True:
-           classe.dette.append(x)
-        elif x=="Exit":
-             os._exit(0)
-        w=classe.traduction_dict()
-        traduction_en_json(w,"fichier.json")
-def affichage():
-     choix=choix_specifique()
-     id=input("veuillez entrez l'uuid de la marchandise à rechercher: ")
-     return choix,id
+def saisir_date(message):
+    while True:
+        date_str = input(f"{message} (format AAAA/MM/JJ) : ")
+        try:
+            date_objet = datetime.strptime(date_str, "%Y/%m/%d")
+            return date_objet.strftime("%Y/%m/%d")
+        except ValueError:
+              print("Format invalide ! Veuillez respecter le format AAAA/MM/JJ (ex: 2026/04/20)")
 affichage_choix()
